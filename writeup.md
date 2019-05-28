@@ -56,7 +56,7 @@ The test images(straight_lines1.jpg, test5.jpg) are as follows:
 
 #### 1. Provide an example of a distortion-corrected image.
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images(test6.png) like this one:
+To demonstrate this step, I will describe how I apply the distortion correction to one of the test images(straight_lines1.jpg, test6.png) like this one:
 
 ![alt text][image2]
 
