@@ -48,7 +48,7 @@ First, I calculate the camera intrinsic matrix K and distortion coefficients wit
 The inputs of the function are the checkerboard object points (objpoints) and the distorted grid points (imgpoints).
 
 Using the calculated K, D matrix, I generate a checkerboard image with cv2.undistort. 
-The test images(straight_lines1.jpg, test5.jpg) are as follows:
+The undistort image of checker board image(calibration1.png) are as follows:
 
 ![alt text][image1]
 
