@@ -34,6 +34,62 @@ The `challenge_video.mp4` video is an extra (and optional) challenge for you if 
 
 If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
+Dependencies
+---
+
+- Ubuntu16.04
+    * numpy
+    * opencv-python
+    * matplotlib
+
+Install
+
+```python
+$ pip install numpy opencv-python matplotlib
+```
+
+
+Examples
+---
+
+Command Line
+
+```
+$ python advanced_line.py input_image output_image
+```
+
+API
+
+Camera 
+
+```python
+src_corners = np.float32([
+              [710, 467],
+              [1108,719],
+              [207, 719],
+              [570, 467]])
+              
+camera = Camera(img_h, img_w, src_corners)
+camera.calibrate('./camera_cal/calibration*.jpg')
+
+undist = camera.undistort(image)
+warped = camera.perspective(undist)
+```
+
+Line
+
+```python
+ym_per_pix = 30/img_h
+xm_per_pix = 3.7/(img_w-2*side_margin)
+
+line = Line(ym_per_pix, xm_per_pix)
+line.detect(warped)
+curve_val = line.calc_curvature(image.shape[0]-1)
+```
+
+
+License
+---
+
+The contents of this repository are covered under [the MIT License](./LICENSE).
