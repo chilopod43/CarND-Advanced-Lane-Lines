@@ -9,15 +9,16 @@ class Line:
     """ a Line 
     
     """
-    def __init__(self, ym_per_pix, xm_per_pix, radius_thresh=2000.0, width_thresh=3.5, right=False):
-        # was the line detected in the last iteration?
-        self.detected = False  
-        # x values of the last n fits of the line
-        self.recent_xfitted = []
+    def __init__(self, ym_per_pix, xm_per_pix, parallel_thresh=0.1, radius_thresh=5000.0, width_thresh=3.0, n=10, right=False):
+        #was the line detected in the last iteration?
+        self.detected = False
+        self.n = n
         #average x values of the fitted line over the last n iterations
+        self.recent_xfitted = []
         self.bestx = None     
         #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None  
+        self.recent_fit = []
+        self.bestfit = None  
         
         #polynomial coefficients for the most recent fit
         self.current_fit = [np.array([False])]  
@@ -35,6 +36,7 @@ class Line:
         # thresholds
         self.radius_threshold = radius_thresh
         self.width_threshold = width_thresh
+        self.parallel_threshold = parallel_thresh
         # define conversions in x and y from pixels space to meters
         self.ym_per_pix = ym_per_pix
         self.xm_per_pix = xm_per_pix
@@ -43,28 +45,49 @@ class Line:
         
     def detect(self, binary_warped):
         if self.detected:
-            self.ally, self.allx, next_fit = \
+            self.ally, self.allx, next_fit, next_x = \
                 self.search_around_poly(binary_warped, self.current_fit)
         else:
-            self.ally, self.allx, next_fit, self.line_base_pos = \
+            self.ally, self.allx, next_fit, next_x = \
                 self.fit_polynomial(binary_warped, margin=200)
             self.detected = True
             
-        self.diffs = np.abs(next_fit - self.current_fit)
+        # calculate best x in n frame.
+        self.recent_xfitted.append(next_x)
+        self.recent_xfitted = self.recent_xfitted[-self.n:]
+        self.bestx = np.mean(self.recent_xfitted, axis=0)
+            
+        # calculate best fit in n frame.
+        self.recent_fit.append(next_fit)
+        self.recent_fit = self.recent_fit[-self.n:]
+        self.bestfit = np.mean(self.recent_fit, axis=0)
+        
+        self.diffs = np.abs(next_fit - self.current_fit)        
         self.current_fit = next_fit
+        self.line_base_pos = next_x
         self.radius_of_curvature = self.calc_curvature(binary_warped.shape[0]-1)
             
     def check(self, line):
         radius_diff = abs(self.radius_of_curvature - line.radius_of_curvature)
         basepos_diff = abs(self.line_base_pos - line.line_base_pos) * self.xm_per_pix
+        parallel_diff = abs((self.current_fit - line.current_fit)[1])
 
-        if (radius_diff > self.radius_threshold) or (basepos_diff < self.width_threshold):
+        if (radius_diff > self.radius_threshold) or \
+               (basepos_diff < self.width_threshold) or \
+               (parallel_diff > self.parallel_threshold):
             self.detected = False
+            
+            # delete current xs,fit
+            self.recent_xfitted = self.recent_xfitted[:-1]
+            self.recent_fit = self.recent_fit[:-1]
+            
+            self.line_base_pos = self.bestx
+            self.current_fit = self.bestfit
             return False
         else:
             return True
             
-    def fit_polynomial(self, binary_warped, nwindows=9, margin=100, minpix=50):
+    def fit_polynomial(self, binary_warped, nwindows=9, margin=200, minpix=50):
         """
         nwindows: the number of sliding windows 
         margin: the width of the windows +/- margin
@@ -150,7 +173,7 @@ class Line:
 
         # fit new polynomials
         fit = np.polyfit(ys*self.ym_per_pix, xs*self.xm_per_pix, 2)
-        return ys, xs, fit
+        return ys, xs, fit, self.line_base_pos
 
     def calc_curvature(self, y_eval):
         curverad = (1+(2*self.current_fit[0]*y_eval*self.ym_per_pix+self.current_fit[1])**2)**1.5/np.abs(2*self.current_fit[0])
@@ -158,7 +181,7 @@ class Line:
 
     
 class Camera:
-    def __init__(self, img_h, img_w, src_corners, side_margin=200):
+    def __init__(self, img_h, img_w, src_corners, side_margin=250):
         self.img_h = img_h
         self.img_w = img_w
         self.side_margin = side_margin
@@ -212,7 +235,7 @@ class Camera:
         else:
             raise RuntimeError("M matrix is invalid.")
 
-    def binarize(self, img, s_thresh=(170, 255), sx_thresh=(20, 100)):
+    def binarize(self, img, s_thresh=(170, 255), sx_thresh=(30, 100)):
         # convert to HLS color space and separate the V channel
         hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
         l_channel = hls[:,:,1]
@@ -307,7 +330,7 @@ if __name__=="__main__":
     camera.calibrate('./camera_cal/calibration*.jpg')
 
     # Line Object
-    ym_per_pix = 30/img_h
+    ym_per_pix = 18.0/img_h
     xm_per_pix = 3.7/(img_w-2*side_margin)
 
     l_line = Line(ym_per_pix, xm_per_pix)
